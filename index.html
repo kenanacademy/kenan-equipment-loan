@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ยืมอุปกรณ์ - Kenan Connect</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root { --green:#06C755; --ink:#1b1b1b; --muted:#777; --line:#e6e6e6; --bg:#f7f7f7; --navy:#0b4a7a; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system, Helvetica, Arial, sans-serif; margin:0; background:var(--bg); color:var(--ink); }
+  .topbar { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; padding:12px 16px; }
+  .topbar .back { width:34px; height:34px; border:none; background:transparent; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink); }
+  .topbar .back svg { width:20px; height:20px; }
+  .topbar .ttl { display:flex; flex-direction:column; line-height:1.15; }
+  .topbar .ttl .title { font-size:16px; font-weight:bold; color:var(--green); }
+  .topbar .ttl .sub { font-size:11px; color:var(--muted); }
+  .wrap { max-width:720px; margin:0 auto; padding:16px; }
+  h3 { font-size:14px; color:#333; margin:18px 2px 8px; }
+  #status { margin:0 0 12px; padding:12px; border-radius:8px; font-size:14px; display:none; white-space:pre-line; }
+  .ok { background:#d4edda; color:#155724; } .err { background:#f8d7da; color:#721c24; }
+  #checkingBox { padding:14px; border-radius:8px; font-size:14px; background:#eee; color:#555; }
+  .eq { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .eq .e-title { font-size:15px; font-weight:bold; }
+  .eq .e-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .eq .avail { font-size:13px; font-weight:bold; margin-top:6px; }
+  .eq .avail.zero { color:#e74c3c; } .eq .avail.some { color:#177245; }
+  .eq .borrowRow { display:flex; gap:8px; margin-top:10px; align-items:center; }
+  .eq .borrowRow input { flex:1; padding:9px; font-size:13px; border-radius:8px; border:1px solid #ccc; }
+  .eq .borrowBtn { padding:10px 14px; border:none; border-radius:8px; background:var(--green); color:#fff; font-weight:bold; cursor:pointer; white-space:nowrap; }
+  .eq .borrowBtn:disabled { opacity:.45; }
+  .loan { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:8px; }
+  .loan .l-title { font-size:14px; font-weight:bold; }
+  .loan .l-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .loan .returnBtn { margin-top:8px; padding:8px 12px; border:none; border-radius:8px; background:#0b4a7a; color:#fff; font-weight:bold; cursor:pointer; }
+  .statusTag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; margin-left:6px; }
+  .st-Borrowed { background:#fff3cd; color:#a97a10; } .st-Returned { background:#e9f7ef; color:#177245; }
+  .emptyMsg { color:#999; font-size:13px; padding:14px 4px; }
+  #loginBox { display:none; padding:16px; border-radius:10px; background:#fff; border:1px solid var(--line); }
+  #loginBox button { width:100%; padding:12px; font-size:15px; border:none; border-radius:8px; margin-top:10px; color:#fff; font-weight:bold; cursor:pointer; background:var(--green); }
+  #manualEntryBox { margin-top:12px; padding:12px; border-radius:8px; font-size:13px; background:#f0f0f0; color:#333; }
+  #manualEntryBox input { width:100%; padding:10px; font-size:14px; border-radius:8px; border:1px solid #ccc; }
+  #manualEntryBox button { width:100%; background:#666; margin-top:8px; color:#fff; border:none; border-radius:8px; padding:10px; font-weight:bold; }
+  .tiny { font-size:11px; color:var(--muted); }
+  #idFoot { margin:20px 0; font-size:11px; color:#aaa; text-align:center; word-break:break-all; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <button class="back" onclick="goHub()" aria-label="Back" title="กลับหน้าหลัก">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ttl"><span class="title">ยืมอุปกรณ์</span><span class="sub">Equipment loan</span></div>
+  </div>
+
+  <div class="wrap">
+    <div id="status"></div>
+    <div id="checkingBox">กำลังตรวจสอบสถานะการเข้าสู่ระบบ...</div>
+
+    <div id="loginBox">
+      <b>เข้าสู่ระบบด้วย LINE</b>
+      <p class="tiny">เข้าสู่ระบบเพื่อยืมอุปกรณ์</p>
+      <button type="button" id="manualLoginBtn" onclick="doManualLogin()">เข้าสู่ระบบ LINE (กดครั้งเดียว)</button>
+      <div id="manualEntryBox">
+        <b>เข้าใช้งานแบบไม่พึ่ง LIFF</b>
+        <p class="tiny" style="margin:6px 0;">แชทกับ Kenan Connect OA พิมพ์ "ขอสิทธิ์" เพื่อรับรหัส แล้ววางด้านล่าง</p>
+        <input type="text" id="manualUidInput" placeholder="เช่น Uxxxxxxxxxxxx">
+        <button type="button" onclick="useManualUid()">ใช้รหัสนี้</button>
+        <div id="manualEntryMsg" class="tiny"></div>
+      </div>
+    </div>
+
+    <div id="mainArea" style="display:none;">
+      <h3>อุปกรณ์ที่ยืมได้</h3>
+      <div id="eqList"></div>
+      <h3>รายการยืมของฉัน</h3>
+      <div id="myLoans"></div>
+    </div>
+
+    <div id="idFoot"></div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMzOnY7z76qPTY0HXLKGOsJpJStszSmJ57_Rgo7WyRGQ0Q-K8vdQj531B-_yUYRwUa/exec';
+    const LIFF_ID = '2010937586-a4GJnU8o';
+    const HUB_URL = 'https://kenanacademy.github.io/kenan-hub/';
+    let currentUid = '';
+
+    function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function setId(m){ const e=document.getElementById('idFoot'); if(e) e.textContent=m; }
+    function goHub(){ window.location.href = HUB_URL; }
+    function showStatus(ok, m){ const e=document.getElementById('status'); e.style.display='block'; e.className=ok?'ok':'err'; e.textContent=m; }
+
+    async function callApiGet(params, retries){
+      if (retries === undefined) retries = 2;
+      const url = new URL(SCRIPT_URL); url.searchParams.set('format','json');
+      Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
+      const res = await fetch(url.toString()); const text = await res.text();
+      try { return JSON.parse(text); }
+      catch (e) { if (retries>0){ await new Promise(r=>setTimeout(r,400)); return callApiGet(params, retries-1); } throw new Error('เซิร์ฟเวอร์ตอบไม่ถูกต้อง (ลองใหม่แล้วไม่สำเร็จ)'); }
+    }
+    async function callApiPost(payload){
+      const res = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+      return res.json();
+    }
+    function fmtDate(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d.getTime())) return String(iso);
+      try { return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'}); } catch(e){ return d.toISOString().slice(0,10); } }
+
+    async function loadEquipment(){
+      const el = document.getElementById('eqList');
+      el.innerHTML = '<div class="emptyMsg">กำลังโหลด...</div>';
+      try {
+        const data = await callApiGet({ action:'getEquipment', uid: currentUid });
+        const list = (data.equipment || []).filter(e => (e.status||'') !== 'Unavailable');
+        if (!list.length){ el.innerHTML = '<div class="emptyMsg">ยังไม่มีอุปกรณ์ในระบบ</div>'; return; }
+        el.innerHTML = '';
+        list.forEach(e => {
+          const avail = Number(e.availableQty||0), total = Number(e.totalQty||0);
+          const card = document.createElement('div'); card.className='eq';
+          const dueId = 'due_'+escapeHtml(e.id);
+          card.innerHTML =
+            '<div class="e-title">'+escapeHtml(e.name||e.id)+'</div>'+
+            '<div class="e-meta">'+(e.category?escapeHtml(e.category):'')+'</div>'+
+            '<div class="avail '+(avail>0?'some':'zero')+'">คงเหลือ '+avail+' / '+total+'</div>'+
+            '<div class="borrowRow"><input type="date" id="'+dueId+'" title="กำหนดคืน"><button class="borrowBtn"'+(avail>0?'':' disabled')+'>ยืม</button></div>';
+          const btn = card.querySelector('.borrowBtn');
+          if (avail>0) btn.onclick = () => borrow(e.id, document.getElementById(dueId).value, btn);
+          el.appendChild(card);
+        });
+      } catch(err){ el.innerHTML = '<div class="emptyMsg">โหลดไม่สำเร็จ: '+escapeHtml(err.message)+'</div>'; }
+    }
+
+    async function borrow(equipmentId, dueDate, btn){
+      btn.disabled=true;
+      try {
+        const data = await callApiPost({ action:'borrowEquipment', uid:currentUid, equipmentId, dueDate });
+        showStatus(data.ok, data.message || data.error || 'ไม่ทราบผลลัพธ์');
+        await loadEquipment(); await loadMyLoans();
+      } catch(e){ showStatus(false,'ยืมไม่สำเร็จ: '+e.message); btn.disabled=false; }
+    }
+
+    async function loadMyLoans(){
+      const el = document.getElementById('myLoans');
+      el.innerHTML = '<div class="emptyMsg">กำลังโหลด...</div>';
+      try {
+        const data = await callApiGet({ action:'getMyLoans', uid: currentUid });
+        const list = data.loans || [];
+        if (!list.length){ el.innerHTML = '<div class="emptyMsg">ยังไม่มีรายการยืม</div>'; return; }
+        el.innerHTML = '';
+        list.forEach(l => {
+          const row = document.createElement('div'); row.className='loan';
+          const meta = 'ยืม '+fmtDate(l.borrowDate) + (l.dueDate?(' · กำหนดคืน '+fmtDate(l.dueDate)):'') + (l.returnDate?(' · คืนแล้ว '+fmtDate(l.returnDate)):'');
+          row.innerHTML = '<div class="l-title">'+escapeHtml(l.equipmentName||l.equipmentId)+'<span class="statusTag st-'+escapeHtml(l.status)+'">'+escapeHtml(l.status)+'</span></div>'+
+                          '<div class="l-meta">'+meta+'</div>';
+          if (l.status==='Borrowed'){
+            const rb=document.createElement('button'); rb.className='returnBtn'; rb.textContent='คืนอุปกรณ์';
+            rb.onclick=()=>returnLoan(l.id, rb);
+            row.appendChild(rb);
+          }
+          el.appendChild(row);
+        });
+      } catch(e){ el.innerHTML = '<div class="emptyMsg">โหลดไม่สำเร็จ: '+escapeHtml(e.message)+'</div>'; }
+    }
+
+    async function returnLoan(id, btn){
+      btn.disabled=true;
+      try { const data=await callApiPost({action:'returnLoan', uid:currentUid, loanId:id}); showStatus(data.ok, data.message||data.error||''); await loadEquipment(); await loadMyLoans(); }
+      catch(e){ showStatus(false,'คืนไม่สำเร็จ: '+e.message); btn.disabled=false; }
+    }
+
+    async function start(uid){
+      currentUid = uid;
+      document.getElementById('checkingBox').style.display='none';
+      document.getElementById('loginBox').style.display='none';
+      document.getElementById('mainArea').style.display='block';
+      setId('รหัสผู้ใช้ LINE ของคุณ: ' + uid);
+      await loadEquipment();
+      await loadMyLoans();
+    }
+
+    function showLogin(showBtn){
+      document.getElementById('checkingBox').style.display='none';
+      document.getElementById('mainArea').style.display='none';
+      document.getElementById('loginBox').style.display='block';
+      document.getElementById('manualLoginBtn').style.display = showBtn ? 'block':'none';
+    }
+    function doManualLogin(){ try { liff.login(); } catch(e){ setId('login ล้มเหลว'); } }
+    function useManualUid(){
+      const uid=(document.getElementById('manualUidInput').value||'').trim(); const msg=document.getElementById('manualEntryMsg');
+      if(!uid){ msg.textContent='กรุณาวางรหัสก่อน'; return; }
+      start(uid).then(()=>{ msg.textContent='เข้าสู่ระบบด้วยรหัสที่กรอกแล้ว'; });
+    }
+    async function tryLoadProfile(){ try { const p=await liff.getProfile(); await start(p.userId); } catch(e){ setId('getProfile ล้มเหลว'); showLogin(true); } }
+
+    (async function init(){
+      let settled=false;
+      const t=setTimeout(()=>{ if(!settled){ setId('หมดเวลารอ LIFF - ใช้ช่องกรอกรหัสแทนได้'); showLogin(true); } },6000);
+      if (typeof liff==='undefined'){ setId('LIFF SDK โหลดไม่สำเร็จ'); showLogin(true); return; }
+      try {
+        await liff.init({ liffId: LIFF_ID }); settled=true; clearTimeout(t);
+        let li=false; try{ li=liff.isLoggedIn(); }catch(e0){}
+        if(!li){ showLogin(true); return; }
+        await tryLoadProfile();
+      } catch(e){ settled=true; clearTimeout(t); setId('LIFF init ล้มเหลว - ใช้ช่องกรอกรหัสแทนได้'); showLogin(true); }
+    })();
+  </script>
+</body>
+</html>
